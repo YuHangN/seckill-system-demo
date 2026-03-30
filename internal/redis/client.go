@@ -1,5 +1,5 @@
-// Package redisclient internal/redis/client.go
-package redisclient
+// Package redis internal/redis/client.go
+package redis
 
 import (
 	"context"
