@@ -1,0 +1,82 @@
+# docker-compose.yml
+version: "3.9"
+
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.9
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: bitnami/kafka:3.6
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: seckill
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  seckill-api:
+    build: { context: ., dockerfile: cmd/seckill-api/Dockerfile }
+    ports:
+      - "8080:8080"
+    depends_on: [kafka, redis, postgres]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      DB_DSN: "host=postgres user=postgres password=postgres dbname=seckill sslmode=disable"
+      PORT: "8080"
+
+  order-service:
+    build: { context: ., dockerfile: cmd/order-service/Dockerfile }
+    ports:
+      - "8081:8081"
+    depends_on: [kafka, redis, postgres]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      DB_DSN: "host=postgres user=postgres password=postgres dbname=seckill sslmode=disable"
+      PORT: "8081"
+
+  stats-service:
+    build: { context: ., dockerfile: cmd/stats-service/Dockerfile }
+    depends_on: [kafka, redis]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+
+  notification-service:
+    build: { context: ., dockerfile: cmd/notification-service/Dockerfile }
+    depends_on: [kafka]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+
+  dashboard:
+    build: { context: ./dashboard }
+    ports:
+      - "5173:80"
+    depends_on: [seckill-api]
+
+volumes:
+  pgdata:

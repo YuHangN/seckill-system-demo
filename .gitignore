@@ -1,0 +1,36 @@
+# Go
+bin/
+*.exe
+*.test
+*.out
+
+# Go workspace
+vendor/
+
+# Build artifacts (compiled service binaries)
+cmd/seckill-api/seckill-api
+cmd/order-service/order-service
+cmd/stats-service/stats-service
+cmd/notification-service/notification-service
+
+# Node / dashboard
+dashboard/node_modules/
+dashboard/dist/
+
+# Environment
+.env
+.env.local
+dashboard/.env.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Docker
+*.tar
+
+# OS
+.DS_Store
+
+/docs
