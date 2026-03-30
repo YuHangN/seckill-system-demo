@@ -21,6 +21,13 @@ services:
       ALLOW_PLAINTEXT_LISTENER: "yes"
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
 
+  # RabbitMQ — 用于订单超时取消的延迟消息（DLX + TTL）
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # management UI: http://localhost:15672 guest/guest
+
   redis:
     image: redis:7-alpine
     ports:
@@ -52,11 +59,12 @@ services:
     build: { context: ., dockerfile: cmd/order-service/Dockerfile }
     ports:
       - "8081:8081"
-    depends_on: [kafka, redis, postgres]
+    depends_on: [kafka, redis, postgres, rabbitmq]
     environment:
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       DB_DSN: "host=postgres user=postgres password=postgres dbname=seckill sslmode=disable"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       PORT: "8081"
 
   stats-service:
