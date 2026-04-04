@@ -43,7 +43,7 @@ func (s *SeckillService) Buy(ctx context.Context, userID, activityID string) (st
 	s.rdb.Expire(ctx, qpsKey, 120*time.Second)
 	s.rdb.Incr(ctx, "stats:total_requests")
 
-	// 2. Dedup check: SET NX with 5-minute TTL
+	// 2. Dedup check: SET NX with 5-minute TTL TODO：添加限制，每个用户只能购买一次同一活动的商品
 	dedupKey := fmt.Sprintf(dedupKeyFmt, userID, activityID)
 	// SET key value NX PX 300000 — 单条原子命令，返回 "OK" 表示设置成功
 	res, err := s.rdb.SetArgs(ctx, dedupKey, "1", redis.SetArgs{
