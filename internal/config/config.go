@@ -8,6 +8,7 @@ type Config struct {
 	RedisAddr    string
 	DBDSN        string
 	Port         string
+	RabbitMQUrl  string
 }
 
 // Load reads environment variables. Panics if required vars are missing.
@@ -17,6 +18,7 @@ func Load() Config {
 		RedisAddr:    getEnv("REDIS_ADDR", "localhost:6379"),
 		DBDSN:        getEnv("DB_DSN", "host=localhost user=postgres password=postgres dbname=seckill sslmode=disable"),
 		Port:         getEnv("PORT", "8080"),
+		RabbitMQUrl:  getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 	}
 	return c
 }
