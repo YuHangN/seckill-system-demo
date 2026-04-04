@@ -1,25 +1,22 @@
 # docker-compose.yml
-version: "3.9"
 
 services:
-  zookeeper:
-    image: bitnami/zookeeper:3.9
-    environment:
-      ALLOW_ANONYMOUS_LOGIN: "yes"
-    ports:
-      - "2181:2181"
-
   kafka:
-    image: bitnami/kafka:3.6
-    depends_on: [zookeeper]
+    image: apache/kafka:3.7.0
     ports:
       - "9092:9092"
     environment:
-      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
-      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      ALLOW_PLAINTEXT_LISTENER: "yes"
-      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # KRaft 模式：不需要 Zookeeper，apache/kafka 官方镜像
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      # 本机直连关键：ADVERTISED 用 localhost，否则客户端会解析不了 "kafka" hostname
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
 
   # RabbitMQ — 用于订单超时取消的延迟消息（DLX + TTL）
   rabbitmq:
@@ -41,9 +38,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: seckill
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
   seckill-api:
     build: { context: ., dockerfile: cmd/seckill-api/Dockerfile }
     ports:
@@ -86,5 +80,3 @@ services:
       - "5173:80"
     depends_on: [seckill-api]
 
-volumes:
-  pgdata:

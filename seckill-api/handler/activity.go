@@ -1,10 +1,11 @@
 package handler
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"seckill-system/seckill-api/service"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ActivityHandler struct {
@@ -39,6 +40,7 @@ func (h *ActivityHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, a)
 }
 
+// Get GetActivity 获取活动详情和当前库存
 func (h *ActivityHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 
