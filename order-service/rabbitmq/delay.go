@@ -80,10 +80,13 @@ func setupTopology(ch *amqp.Channel) error {
 
 // PublishDelay 向 order.delay 队列发送一条消息，30s 后自动路由到 order.cancel
 func (c *DelayClient) PublishDelay(orderID, activityID string) error {
-	body, _ := json.Marshal(model.OrderCancelledEvent{
+	body, err := json.Marshal(model.OrderCancelledEvent{
 		OrderID:    orderID,
 		ActivityID: activityID,
 	})
+	if err != nil {
+		return fmt.Errorf("marshal delay message: %w", err)
+	}
 
 	return c.ch.Publish("", delayQueue, false, false, amqp.Publishing{
 		ContentType:  "application/json",
@@ -137,7 +140,9 @@ func (c *DelayClient) handleCancel(ctx context.Context, msg amqp.Delivery) {
 
 	c.rdb.Incr(ctx, fmt.Sprintf("stock:%s", event.ActivityID))
 	// 通知 Kafka：stats/notification 服务需要感知这个取消事件
-	c.producer.Publish(ctx, "order.cancelled", event)
+	if err := c.producer.Publish(ctx, "order.cancelled", event); err != nil {
+		log.Printf("rabbitmq: failed to publish order.cancelled event: %v", err)
+	}
 
 	msg.Ack(false)
 	log.Printf("rabbitmq: order %s cancelled via timeout", event.OrderID)

@@ -30,6 +30,9 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 func (h *OrderHandler) GetRecentOrders(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	var orders []model.Order
-	h.db.Order("created_at DESC").Limit(limit).Find(&orders)
+	if err := h.db.Order("created_at DESC").Limit(limit).Find(&orders).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, orders)
 }

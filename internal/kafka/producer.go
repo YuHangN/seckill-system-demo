@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -13,9 +14,11 @@ type Producer struct {
 
 func NewProducer(brokers []string) *Producer {
 	w := &kafka.Writer{
-		Addr: kafka.TCP(brokers...),
-		// 将消息发送到当前分区中最少字节的分区，以实现负载均衡。
+		Addr:     kafka.TCP(brokers...),
 		Balancer: &kafka.LeastBytes{},
+		// 有消息立即发送，不等批量窗口，降低单次请求延迟
+		BatchSize:    1,
+		BatchTimeout: 10 * time.Millisecond,
 		// 如果主题不存在，自动创建主题。
 		AllowAutoTopicCreation: true,
 	}

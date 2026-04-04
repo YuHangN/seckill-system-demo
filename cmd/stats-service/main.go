@@ -14,6 +14,10 @@ func main() {
 	cfg := config.Load()
 	brokers := strings.Split(cfg.KafkaBrokers, ",")
 
+	if err := kafkaclient.EnsureTopics(brokers, []string{"order.created", "order.paid", "order.cancelled"}); err != nil {
+		panic("ensure kafka topics: " + err.Error())
+	}
+
 	rdb := redisclient.New(cfg.RedisAddr)
 	c := kafkaclient.NewConsumer(brokers, "stats-service-group",
 		"order.created", "order.paid", "order.cancelled")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"seckill-system/internal/model"
 	"time"
 
@@ -50,11 +51,11 @@ func (s *SeckillService) Buy(ctx context.Context, userID, activityID string) (st
 		Mode: "NX",
 		TTL:  5 * time.Minute,
 	}).Result()
-	set := res == "OK"
-
-	if err != nil {
-		return "", err
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return "", err // 真正的 Redis 错误
 	}
+	// key 已存在时 NX 不设置，res="" 且 err=redis.Nil
+	set := res == "OK"
 	// 如果没有设置成功，说明用户点击太快或者重复提交了订单，直接返回重复错误。
 	if !set {
 		s.rdb.Incr(ctx, "stats:fail_count")
@@ -65,14 +66,20 @@ func (s *SeckillService) Buy(ctx context.Context, userID, activityID string) (st
 	stockKey := fmt.Sprintf("stock:%s", activityID)
 	remaining, err := s.rdb.Decr(ctx, stockKey).Result()
 	if err != nil {
-		s.rdb.Del(ctx, dedupKey)
+		if delErr := s.rdb.Del(ctx, dedupKey).Err(); delErr != nil {
+			log.Printf("rollback: failed to delete dedup key: %v", delErr)
+		}
 		return "", err
 	}
 	// 如果扣库存后剩余量小于 0，说明库存不足了，订单失败。
 	if remaining < 0 {
 		// Undo the decrement — item is sold out
-		s.rdb.Incr(ctx, stockKey)
-		s.rdb.Del(ctx, dedupKey)
+		if err := s.rdb.Incr(ctx, stockKey).Err(); err != nil {
+			log.Printf("rollback: failed to restore stock: %v", err)
+		}
+		if err := s.rdb.Del(ctx, dedupKey).Err(); err != nil {
+			log.Printf("rollback: failed to delete dedup key: %v", err)
+		}
 		s.rdb.Incr(ctx, "stats:fail_count")
 		return "", ErrSoldOut
 	}
@@ -85,8 +92,12 @@ func (s *SeckillService) Buy(ctx context.Context, userID, activityID string) (st
 		UserID:     userID,
 	}
 	if err := s.producer.Publish(ctx, "order.created", event); err != nil {
-		s.rdb.Incr(ctx, stockKey)
-		s.rdb.Del(ctx, dedupKey)
+		if rbErr := s.rdb.Incr(ctx, stockKey).Err(); rbErr != nil {
+			log.Printf("rollback: failed to restore stock: %v", rbErr)
+		}
+		if rbErr := s.rdb.Del(ctx, dedupKey).Err(); rbErr != nil {
+			log.Printf("rollback: failed to delete dedup key: %v", rbErr)
+		}
 		return "", err
 	}
 

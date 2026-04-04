@@ -31,16 +31,25 @@ func (nc *NotificationConsumer) Run(ctx context.Context) {
 		switch msg.Topic {
 		case "order.created":
 			var e model.OrderCreatedEvent
-			json.Unmarshal(msg.Value, &e)
-			log.Printf("[NOTIFY] Order created - user=%s order=%s", e.UserID, e.OrderID)
+			if err := json.Unmarshal(msg.Value, &e); err != nil {
+				log.Printf("[NOTIFY] unmarshal order.created error: %v", err)
+			} else {
+				log.Printf("[NOTIFY] Order created - user=%s order=%s", e.UserID, e.OrderID)
+			}
 		case "order.paid":
 			var e model.OrderPaidEvent
-			json.Unmarshal(msg.Value, &e)
-			log.Printf("[NOTIFY] Payment confirmed - order=%s", e.OrderID)
+			if err := json.Unmarshal(msg.Value, &e); err != nil {
+				log.Printf("[NOTIFY] unmarshal order.paid error: %v", err)
+			} else {
+				log.Printf("[NOTIFY] Payment confirmed - order=%s", e.OrderID)
+			}
 		case "order.cancelled":
 			var e model.OrderCancelledEvent
-			json.Unmarshal(msg.Value, &e)
-			log.Printf("[NOTIFY] Order cancelled - order=%s", e.OrderID)
+			if err := json.Unmarshal(msg.Value, &e); err != nil {
+				log.Printf("[NOTIFY] unmarshal order.cancelled error: %v", err)
+			} else {
+				log.Printf("[NOTIFY] Order cancelled - order=%s", e.OrderID)
+			}
 		}
 
 		nc.consumer.CommitMessages(ctx, msg)

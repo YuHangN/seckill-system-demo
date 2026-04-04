@@ -12,7 +12,9 @@ type OrderService struct {
 }
 
 func NewOrderService(db *gorm.DB) *OrderService {
-	db.AutoMigrate(&model.Order{})
+	if err := db.AutoMigrate(&model.Order{}); err != nil {
+		panic("failed to migrate order table: " + err.Error())
+	}
 	return &OrderService{db: db}
 }
 

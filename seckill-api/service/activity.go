@@ -19,7 +19,9 @@ type ActivityService struct {
 }
 
 func NewActivityService(db *gorm.DB, rdb *redis.Client) *ActivityService {
-	db.AutoMigrate(&model.Activity{})
+	if err := db.AutoMigrate(&model.Activity{}); err != nil {
+		panic("failed to migrate activity table: " + err.Error())
+	}
 	return &ActivityService{db: db, rdb: rdb}
 }
 
@@ -37,7 +39,9 @@ func (s *ActivityService) Create(ctx context.Context, name string, stock int, st
 	}
 
 	key := fmt.Sprintf(stockKey, a.ID)
-	s.rdb.Set(ctx, key, stock, 0)
+	if err := s.rdb.Set(ctx, key, stock, 0).Err(); err != nil {
+		return nil, fmt.Errorf("activity created but failed to set redis stock: %w", err)
+	}
 	return a, nil
 }
 
@@ -47,6 +51,9 @@ func (s *ActivityService) Get(ctx context.Context, id string) (*model.Activity, 
 		return nil, 0, err
 	}
 	// Read current stock from Redis.
-	stock, _ := s.rdb.Get(ctx, fmt.Sprintf(stockKey, id)).Int64()
+	stock, err := s.rdb.Get(ctx, fmt.Sprintf(stockKey, id)).Int64()
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get redis stock: %w", err)
+	}
 	return &a, stock, nil
 }

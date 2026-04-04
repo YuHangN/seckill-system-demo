@@ -19,6 +19,11 @@ func main() {
 
 	rdb := redis.New(cfg.RedisAddr)
 	database := db.New(cfg.DBDSN)
+
+	if err := kafka.EnsureTopics(brokers, []string{"order.created", "order.paid", "order.cancelled"}); err != nil {
+		panic("ensure kafka topics: " + err.Error())
+	}
+
 	producer := kafka.NewProducer(brokers)
 	defer producer.Close()
 

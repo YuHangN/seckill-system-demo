@@ -1,4 +1,4 @@
-// cmd/stats-service/main.go
+// cmd/notification-service/main.go
 package main
 
 import (
@@ -13,7 +13,11 @@ func main() {
 	cfg := config.Load()
 	brokers := strings.Split(cfg.KafkaBrokers, ",")
 
-	c := kafkaclient.NewConsumer(brokers, "stats-service-group",
+	if err := kafkaclient.EnsureTopics(brokers, []string{"order.created", "order.paid", "order.cancelled"}); err != nil {
+		panic("ensure kafka topics: " + err.Error())
+	}
+
+	c := kafkaclient.NewConsumer(brokers, "notification-service-group",
 		"order.created", "order.paid", "order.cancelled")
 	defer c.Close()
 

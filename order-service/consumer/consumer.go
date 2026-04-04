@@ -41,8 +41,11 @@ func (oc *OrderConsumer) Run(ctx context.Context) {
 				log.Printf("create order error: %v", err)
 			} else {
 				// 发送延迟消息：30s 后若仍 PENDING 则取消
-				oc.delayClient.PublishDelay(event.OrderID, event.ActivityID)
-				log.Printf("order created: %s, timeout scheduled", event.OrderID)
+				if err := oc.delayClient.PublishDelay(event.OrderID, event.ActivityID); err != nil {
+					log.Printf("publish delay message error: %v", err)
+				} else {
+					log.Printf("order created: %s, timeout scheduled", event.OrderID)
+				}
 			}
 		}
 
