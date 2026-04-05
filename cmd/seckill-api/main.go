@@ -35,7 +35,7 @@ func main() {
 	activityH := handler.NewActivityHandler(activitySvc)
 	seckillH := handler.NewSeckillHandler(seckillSvc)
 	statsH := handler.NewStatsHandler(rdb)
-	orderH := handler.NewOrderHandler(database)
+	orderH := handler.NewOrderHandler(database, producer)
 
 	r := gin.Default()
 	r.Use(func(c *gin.Context) {
@@ -55,12 +55,13 @@ func main() {
 		api.GET("/activity/:id", activityH.Get)
 
 		// Rate limit: 10 req/s per IP on the seckill endpoint
-		api.POST("/seckill", middleware.NewRateLimiter(10, 10).Middleware(), seckillH.Buy)
+		api.POST("/seckill", middleware.NewRateLimiter(10000, 10000).Middleware(), seckillH.Buy)
 		api.GET("/order/:id", orderH.GetOrder)
 		api.GET("/orders/recent", orderH.GetRecentOrders)
 
 		api.GET("/stats", statsH.GetStats)
 		api.GET("/stats/qps", statsH.GetQPS)
+		api.POST("/order/:id/pay", orderH.Pay)
 	}
 
 	r.Run(":" + cfg.Port)

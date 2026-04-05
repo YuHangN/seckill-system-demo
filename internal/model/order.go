@@ -1,7 +1,12 @@
 // Package model internal/model/order.go
 package model
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var ErrOrderNotPending = errors.New("order is not pending")
 
 type OrderStatus string
 

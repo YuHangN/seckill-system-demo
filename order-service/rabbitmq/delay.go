@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"seckill-system/internal/kafka"
@@ -123,16 +124,14 @@ func (c *DelayClient) handleCancel(ctx context.Context, msg amqp.Delivery) {
 		return
 	}
 
-	// 检查订单是否仍为 PENDING（防止重复取消已支付的订单）
-	status, err := c.orderSvc.GetStatus(ctx, event.OrderID)
-	if err != nil || status != model.StatusPending {
-		log.Printf("rabbitmq: order %s not PENDING (status=%s), skip", event.OrderID, status)
-		msg.Ack(false)
-		return
-	}
-
-	// 取消订单
+	// 条件更新：只有 PENDING 状态才能取消，防止并发时覆盖已支付的订单
 	if err := c.orderSvc.UpdateStatus(ctx, event.OrderID, model.StatusCancelled); err != nil {
+		if errors.Is(err, model.ErrOrderNotPending) {
+			// 订单已支付或已取消，正常跳过
+			log.Printf("rabbitmq: order %s already handled, skip cancel", event.OrderID)
+			msg.Ack(false)
+			return
+		}
 		log.Printf("rabbitmq: cancel order error: %v", err)
 		msg.Nack(false, true) // requeue
 		return

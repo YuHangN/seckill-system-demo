@@ -1,11 +1,11 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
-COPY ../../seckill-api .
-RUN CGO_ENABLED=0 go build -o seckill-api ./cmd/seckill-api
+COPY . .
+RUN CGO_ENABLED=0 go build -o /bin/app ./cmd/seckill-api
 
 FROM alpine:3.19
-COPY --from=builder /app/seckill-api /seckill-api
+COPY --from=builder /bin/app /seckill-api
 EXPOSE 8080
 ENTRYPOINT ["/seckill-api"]

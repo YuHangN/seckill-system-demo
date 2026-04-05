@@ -29,10 +29,18 @@ func (s *OrderService) Create(ctx context.Context, id, activityID, userID string
 }
 
 func (s *OrderService) UpdateStatus(ctx context.Context, id string, status model.OrderStatus) error {
-	return s.db.WithContext(ctx).
+	// 只允许从 PENDING 状态变更，防止并发时取消覆盖已支付的订单
+	result := s.db.WithContext(ctx).
 		Model(&model.Order{}).
-		Where("id = ?", id).
-		Update("status", status).Error
+		Where("id = ? AND status = ?", id, model.StatusPending).
+		Update("status", status)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return model.ErrOrderNotPending
+	}
+	return nil
 }
 
 func (s *OrderService) GetStatus(ctx context.Context, id string) (model.OrderStatus, error) {

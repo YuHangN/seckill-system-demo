@@ -11,7 +11,7 @@ services:
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
       # 本机直连关键：ADVERTISED 用 localhost，否则客户端会解析不了 "kafka" hostname
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -27,12 +27,22 @@ services:
     image: rabbitmq:3.12-management-alpine
     ports:
       - "5672:5672"
-      - "15672:15672"   # management UI: http://localhost:15672 guest/guest
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   postgres:
     image: postgres:15-alpine
@@ -42,11 +52,21 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: seckill
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   seckill-api:
     build: { context: ., dockerfile: cmd/seckill-api/Dockerfile }
+    restart: on-failure
     ports:
       - "8080:8080"
-    depends_on: [kafka, redis, postgres]
+    depends_on:
+      kafka:    { condition: service_started }
+      redis:    { condition: service_healthy }
+      postgres: { condition: service_healthy }
     environment:
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
@@ -55,9 +75,14 @@ services:
 
   order-service:
     build: { context: ., dockerfile: cmd/order-service/Dockerfile }
+    restart: on-failure
     ports:
       - "8081:8081"
-    depends_on: [kafka, redis, postgres, rabbitmq]
+    depends_on:
+      kafka:    { condition: service_started }
+      redis:    { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
     environment:
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
@@ -67,20 +92,18 @@ services:
 
   stats-service:
     build: { context: ., dockerfile: cmd/stats-service/Dockerfile }
-    depends_on: [kafka, redis]
+    restart: on-failure
+    depends_on:
+      kafka: { condition: service_started }
+      redis: { condition: service_healthy }
     environment:
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
 
   notification-service:
     build: { context: ., dockerfile: cmd/notification-service/Dockerfile }
-    depends_on: [kafka]
+    restart: on-failure
+    depends_on:
+      kafka: { condition: service_started }
     environment:
       KAFKA_BROKERS: kafka:9092
-
-  dashboard:
-    build: { context: ./dashboard }
-    ports:
-      - "5173:80"
-    depends_on: [seckill-api]
-
